@@ -231,6 +231,15 @@ type (
 		PresentFields map[string]bool `json:"-"`
 		// ServerID is the attached server-agent ID. It is nil for non-heartbeat monitors.
 		ServerID *string `json:"server_id"`
+		// HeartbeatType is server_agent or cron_job for heartbeat monitors, and empty
+		// when the API does not report it.
+		HeartbeatType string `json:"heartbeat_type"`
+		// CronExpression is the cron schedule of a heartbeat monitor using an
+		// advanced (cron expression) schedule. It is nil for interval schedules.
+		CronExpression *string `json:"cron_expression"`
+		// CronTimezone is the IANA time zone used to evaluate CronExpression. It is
+		// nil for interval schedules.
+		CronTimezone *string `json:"cron_timezone"`
 	}
 
 	// ListUptimeMonitorsResponse is returned by ListUptimeMonitors.
@@ -708,7 +717,8 @@ var knownUptimeMonitorFields = map[string]struct{}{
 	"grace": {}, "Grace": {}, "info_public": {}, "cpu_public": {}, "ram_public": {}, "disk_public": {}, "net_public": {},
 	"INFOPub": {}, "CPUPub": {}, "RAMPub": {}, "DISKPub": {}, "NETPub": {},
 	"ssl_expiration_reminder": {}, "domain_expiration_reminder": {}, "ns_change_alert": {},
-	"agent_id": {}, "server_id": {},
+	"agent_id": {}, "has_agent": {}, "server_id": {},
+	"heartbeat_type": {}, "cron_expression": {}, "cron_timezone": {},
 }
 
 func inspectUptimeMonitorFields(body []byte) ([]string, map[string]bool) {

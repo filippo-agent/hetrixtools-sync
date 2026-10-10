@@ -1000,7 +1000,7 @@ func TestDecodeActionResponseRequiresSuccess(t *testing.T) {
 func TestUptimeMonitorTracksUnknownAndPresentFields(t *testing.T) {
 	t.Parallel()
 	var m UptimeMonitor
-	if err := json.Unmarshal([]byte(`{"id":"m1","name":"x","type":"website","future_setting":true}`), &m); err != nil {
+	if err := json.Unmarshal([]byte(`{"id":"m1","name":"x","type":"website","has_agent":false,"agent_id":null,"future_setting":true}`), &m); err != nil {
 		t.Fatal(err)
 	}
 	if !m.PresentFields["id"] {
@@ -1008,6 +1008,35 @@ func TestUptimeMonitorTracksUnknownAndPresentFields(t *testing.T) {
 	}
 	if len(m.UnknownFields) != 1 || m.UnknownFields[0] != "future_setting" {
 		t.Fatalf("unknown = %#v", m.UnknownFields)
+	}
+}
+
+func TestUptimeMonitorDecodesHeartbeatSchedule(t *testing.T) {
+	t.Parallel()
+	var m UptimeMonitor
+	body := `{"id":"m1","name":"x","type":"heartbeat","timeout":0,"grace":300,"heartbeat_type":"cron_job","cron_expression":"30 2 * * *","cron_timezone":"America/New_York","agent_id":"a1","has_agent":true}`
+	if err := json.Unmarshal([]byte(body), &m); err != nil {
+		t.Fatal(err)
+	}
+	if len(m.UnknownFields) != 0 {
+		t.Fatalf("unknown = %#v", m.UnknownFields)
+	}
+	if m.HeartbeatType != "cron_job" {
+		t.Fatalf("heartbeat type = %q", m.HeartbeatType)
+	}
+	if m.CronExpression == nil || *m.CronExpression != "30 2 * * *" {
+		t.Fatalf("cron expression = %v", m.CronExpression)
+	}
+	if m.CronTimezone == nil || *m.CronTimezone != "America/New_York" {
+		t.Fatalf("cron timezone = %v", m.CronTimezone)
+	}
+
+	m = UptimeMonitor{}
+	if err := json.Unmarshal([]byte(`{"id":"m2","name":"y","type":"heartbeat","heartbeat_type":"cron_job","cron_expression":null,"cron_timezone":null}`), &m); err != nil {
+		t.Fatal(err)
+	}
+	if m.CronExpression != nil || m.CronTimezone != nil {
+		t.Fatalf("interval schedule decoded as %v %v", m.CronExpression, m.CronTimezone)
 	}
 }
 

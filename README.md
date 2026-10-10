@@ -120,6 +120,8 @@ credential-injecting proxies.
   update, and delete. Updates explicitly keep the unused server-agent detail
   sections private; updates are refused if the API reports any of those sections
   as currently public.
+- Only interval-scheduled `cron_job` heartbeats are managed. Server-agent
+  heartbeats and heartbeats with a cron expression schedule fail closed.
 - Status pages manage membership of live, managed monitors. Ignored monitors
   and dangling IDs are preserved. Page presentation settings are untouched.
 - Push always computes and prints a fresh preview before making API calls. An

@@ -111,6 +111,9 @@ func buildPlan(ctx context.Context, h *Hetrix, client apiClient) (*plan, error) 
 		if remote.kind != WebsiteMonitor && remote.kind != CronMonitor {
 			return nil, fmt.Errorf("managed remote monitor %q has unsupported type %q; ignore it explicitly or add support", remote.name, remote.raw.Type)
 		}
+		if err := validateRemoteHeartbeat(remote); err != nil {
+			return nil, err
+		}
 		if len(remote.contactLists) != 1 {
 			return nil, fmt.Errorf("managed remote monitor %q has %d contact lists; safe updates require exactly one", remote.name, len(remote.contactLists))
 		}
@@ -333,6 +336,21 @@ func validateRemoteCompleteness(remote *remoteMonitor) error {
 	}
 	if len(missing) > 0 {
 		return fmt.Errorf("managed remote monitor %q omitted required API fields: %s", remote.name, strings.Join(missing, ", "))
+	}
+	return nil
+}
+
+// validateRemoteHeartbeat rejects heartbeat variants that a Cron definition
+// cannot describe, since updating them would rewrite their schedule or source.
+func validateRemoteHeartbeat(remote *remoteMonitor) error {
+	if remote.kind != CronMonitor {
+		return nil
+	}
+	if t := remote.raw.HeartbeatType; t != "" && t != "cron_job" {
+		return fmt.Errorf("managed remote monitor %q has unsupported heartbeat type %q; ignore it explicitly or add support", remote.name, t)
+	}
+	if remote.raw.CronExpression != nil || remote.raw.CronTimezone != nil {
+		return fmt.Errorf("managed remote monitor %q uses a cron expression schedule, which is unsupported; ignore it explicitly or add support", remote.name)
 	}
 	return nil
 }

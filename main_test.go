@@ -231,6 +231,53 @@ func TestUnknownManagedFieldsFailClosed(t *testing.T) {
 	}
 }
 
+func TestUnsupportedManagedHeartbeatsFailClosed(t *testing.T) {
+	expr, tz := "30 2 * * *", "America/New_York"
+	for _, tc := range []struct {
+		name   string
+		modify func(*api.UptimeMonitor)
+		want   string
+	}{
+		{"server agent", func(m *api.UptimeMonitor) { m.HeartbeatType = "server_agent" }, "unsupported heartbeat type"},
+		{"cron expression", func(m *api.UptimeMonitor) { m.CronExpression = &expr }, "cron expression schedule"},
+		{"cron timezone", func(m *api.UptimeMonitor) { m.CronTimezone = &tz }, "cron expression schedule"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			m := exactCron()
+			m.HeartbeatType = "cron_job"
+			tc.modify(&m)
+			f := &fakeAPI{contacts: []api.ContactList{{ID: "c1", Name: "managed"}}, monitors: []api.UptimeMonitor{m}}
+			defs := func(h *Hetrix) {
+				h.IgnoreExisting(func(m ExistingMonitor) bool { return !contains(m.ContactLists, "managed") })
+				h.CronDefaults(Cron{Interval: 15 * time.Minute})
+				h.Cron(Cron{Name: "job", ContactList: "managed"})
+			}
+			err := runCLI(context.Background(), []string{"test", "push"}, &bytes.Buffer{}, &bytes.Buffer{}, defs, f)
+			if err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("error = %v", err)
+			}
+			if f.updates != 0 || len(f.updateRequests) != 0 {
+				t.Fatalf("updates = %d, requests = %d", f.updates, len(f.updateRequests))
+			}
+		})
+	}
+}
+
+func TestCronJobHeartbeatIsManaged(t *testing.T) {
+	m := exactCron()
+	m.HeartbeatType = "cron_job"
+	f := &fakeAPI{contacts: []api.ContactList{{ID: "c1", Name: "managed"}}, monitors: []api.UptimeMonitor{m}}
+	defs := func(h *Hetrix) {
+		h.IgnoreExisting(func(m ExistingMonitor) bool { return !contains(m.ContactLists, "managed") })
+		h.CronDefaults(Cron{Interval: 15 * time.Minute})
+		h.Cron(Cron{Name: "job", ContactList: "managed"})
+	}
+	var out bytes.Buffer
+	if err := runCLI(context.Background(), []string{"test", "preview"}, &out, &bytes.Buffer{}, defs, f); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func exactCron() api.UptimeMonitor {
 	public, show := false, false
 	return api.UptimeMonitor{
